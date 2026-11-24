@@ -1,0 +1,90 @@
+{{define "title"}}Dashboard{{end}}
+{{define "content"}}
+<section class="stats">
+  {{range .Totals}}
+  <div class="stat">
+    <div class="stat-label">Held for users · {{.Currency}}</div>
+    <div class="stat-value">{{money .Currency .Cents}}</div>
+  </div>
+  {{end}}
+  <div class="stat">
+    <div class="stat-label">Payments posted</div>
+    <div class="stat-value">{{.PaymentCount}}</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label">Accounts</div>
+    <div class="stat-value">{{len .Users}}</div>
+  </div>
+</section>
+
+<h2>Accounts</h2>
+<section class="cards">
+  {{range .Users}}
+  <a class="card" href="{{$.BasePath}}/accounts/{{.ID}}">
+    <div class="card-top">
+      <span class="card-name">{{.Name}}</span>
+      <span class="chip">{{.Currency}}</span>
+    </div>
+    <div class="card-balance">{{money .Currency .BalanceCents}}</div>
+    <div class="card-link">View statement →</div>
+  </a>
+  {{else}}
+  <p class="muted">No accounts yet — open the first one below.</p>
+  {{end}}
+</section>
+
+<div class="grid-2">
+  <section class="panel">
+    <h2>Recent payments</h2>
+    {{if .Recent}}
+    <table class="table">
+      <thead>
+        <tr><th>When</th><th>From → To</th><th>Note</th><th class="num">Amount</th></tr>
+      </thead>
+      <tbody>
+        {{range .Recent}}
+        <tr>
+          <td class="muted nowrap">{{clock .CreatedAt}}</td>
+          <td>{{.FromName}} <span class="arrow">→</span> {{.ToName}}
+            {{if eq .Kind "deposit"}}<span class="chip chip-kind">deposit</span>{{end}}</td>
+          <td class="muted">{{.Note}}</td>
+          <td class="num nowrap">{{money .Currency .AmountCents}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+    {{else}}
+    <p class="muted">No payments yet.</p>
+    {{end}}
+  </section>
+
+  <section class="panel">
+    <h2>Open an account</h2>
+    <form method="post" action="{{.BasePath}}/accounts" class="form">
+      <label for="name">Account name</label>
+      <input id="name" name="name" type="text" required maxlength="80"
+             placeholder="e.g. Aisha Rahman" value="{{.FormName}}">
+      <label for="currency">Currency</label>
+      <select id="currency" name="currency">
+        <option value="SGD" {{if eq .FormCurrency "SGD"}}selected{{end}}>SGD — Singapore dollar</option>
+        <option value="USD" {{if eq .FormCurrency "USD"}}selected{{end}}>USD — US dollar</option>
+      </select>
+      <button type="submit" class="btn">Open account</button>
+    </form>
+
+    {{if .System}}
+    <h3 class="sys-head">System accounts</h3>
+    <ul class="sys-list">
+      {{range .System}}
+      <li>
+        <a href="{{$.BasePath}}/accounts/{{.ID}}">{{.Name}} · {{.Currency}}</a>
+        <span class="num">{{money .Currency .BalanceCents}}</span>
+      </li>
+      {{end}}
+    </ul>
+    <p class="muted small">EXTERNAL mirrors all user funds in its currency —
+      deposits are payments from it, so even new money balances.</p>
+    {{end}}
+  </section>
+</div>
+{{end}}

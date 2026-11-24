@@ -1,0 +1,28 @@
+{{define "base"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{template "title" .}} · Settle</title>
+<link rel="stylesheet" href="{{.BasePath}}/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="{{.BasePath}}/"><span class="brand-mark">◆</span> Settle</a>
+  <nav class="nav">
+    <a href="{{.BasePath}}/">Dashboard</a>
+    <a href="{{.BasePath}}/pay">New payment</a>
+    <a href="{{.BasePath}}/integrity">Integrity</a>
+  </nav>
+</header>
+<main class="wrap">
+{{if .Notice}}<div class="banner ok" role="status">{{.Notice}}</div>{{end}}
+{{if .Error}}<div class="banner err" role="alert">{{.Error}}</div>{{end}}
+{{template "content" .}}
+</main>
+<footer class="foot">
+  Settle — a mini payment platform on a double-entry ledger. Integer cents only;
+  every payment is balanced, atomic and idempotent.
+</footer>
+</body>
+</html>{{end}}

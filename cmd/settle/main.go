@@ -12,12 +12,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"settle/internal/api"
 	"settle/internal/config"
 	"settle/internal/store"
+	"settle/internal/web"
 )
 
 func main() {
@@ -44,10 +46,15 @@ func run() error {
 		return err
 	}
 	log.Printf("settle: schema ready")
+	if seeded, err := st.SeedIfEmpty(ctx); err != nil {
+		return err
+	} else if seeded {
+		log.Printf("settle: seeded demo dataset")
+	}
 
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
-		Handler:           api.New(st).Routes(),
+		Handler:           dispatch(api.New(st).Routes(), web.New(st, cfg.BasePath).Routes()),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 	go func() {
@@ -62,4 +69,41 @@ func run() error {
 		return fmt.Errorf("serve: %w", err)
 	}
 	return nil
+}
+
+// dispatch routes each request to the dashboard UI or the JSON API.
+// The two share three paths — GET /, GET /accounts/{id} and
+// POST /accounts — so browsers are told apart by the headers they
+// send: form posts are url-encoded, page loads for an account ask
+// for text/html, and /, /pay and /integrity exist only in the UI.
+// Everything else (JSON bodies, API clients) goes to the API, whose
+// paths and responses are unchanged.
+func dispatch(apiH, uiH http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isUIRequest(r) {
+			uiH.ServeHTTP(w, r)
+			return
+		}
+		apiH.ServeHTTP(w, r)
+	})
+}
+
+func isUIRequest(r *http.Request) bool {
+	if r.Method == http.MethodPost {
+		return strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded")
+	}
+	if r.Method != http.MethodGet {
+		return false
+	}
+	switch r.URL.Path {
+	case "/", "/pay", "/integrity":
+		return true
+	}
+	if strings.HasPrefix(r.URL.Path, "/static/") {
+		return true
+	}
+	if strings.HasPrefix(r.URL.Path, "/accounts/") {
+		return strings.Contains(r.Header.Get("Accept"), "text/html")
+	}
+	return false
 }

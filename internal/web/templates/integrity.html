@@ -1,0 +1,50 @@
+{{define "title"}}Ledger integrity{{end}}
+{{define "content"}}
+<h1>Ledger integrity</h1>
+<p class="muted lead">This page recomputes every balance from the raw ledger
+entries — the source of truth — and compares it with the stored balances.
+It is the reconciliation a payments team runs against its ledger, live.</p>
+
+{{if .Report.OK}}
+<div class="banner ok big">✓ Ledger balanced — every balance reconciles and each currency sums to zero.</div>
+{{else}}
+<div class="banner err big">✗ Ledger mismatch — the rows below marked ✗ disagree with the raw entries.</div>
+{{end}}
+<p class="muted small">Checked {{day .Report.CheckedAt}}.</p>
+
+<h2>Per-currency entry sums</h2>
+<table class="table">
+  <thead>
+    <tr><th>Currency</th><th class="num">Sum of all entries</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    {{range .Report.Currencies}}
+    <tr>
+      <td>{{.Currency}}</td>
+      <td class="num">{{money .Currency .EntriesSumCents}}</td>
+      <td>{{if .OK}}<span class="ok-text">✓ zero — nothing created or destroyed</span>{{else}}<span class="err-text">✗ not zero</span>{{end}}</td>
+    </tr>
+    {{else}}
+    <tr><td colspan="3" class="muted">No entries yet.</td></tr>
+    {{end}}
+  </tbody>
+</table>
+
+<h2>Stored vs recomputed balances</h2>
+<table class="table">
+  <thead>
+    <tr><th>Account</th><th>Currency</th><th class="num">Stored</th><th class="num">From entries</th><th>Status</th></tr>
+  </thead>
+  <tbody>
+    {{range .Report.Accounts}}
+    <tr>
+      <td>{{.Name}}</td>
+      <td>{{.Currency}}</td>
+      <td class="num nowrap">{{money .Currency .StoredBalanceCents}}</td>
+      <td class="num nowrap">{{money .Currency .ComputedBalanceCents}}</td>
+      <td>{{if .OK}}<span class="ok-text">✓ match</span>{{else}}<span class="err-text">✗ mismatch</span>{{end}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}

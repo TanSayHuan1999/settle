@@ -12,7 +12,17 @@ import (
 )
 
 // PostPayment moves amountCents from one account to another as a
-// single balanced double-entry transaction:
+// single balanced double-entry transaction. It is PostPaymentWithNote
+// with an empty note; see there for the rules.
+func (s *Store) PostPayment(ctx context.Context, fromID, toID uuid.UUID, amountCents int64, kind string, idemKey *string) (p *Payment, created bool, err error) {
+	return s.postPayment(ctx, fromID, toID, amountCents, kind, idemKey, "")
+}
+
+// PostPaymentWithNote is PostPayment with a free-text note attached
+// to the payment (a memo like "Rent split — November"). The note is
+// display-only: it plays no part in the ledger math.
+//
+// The transaction guarantees:
 //
 //   - both account rows are locked with SELECT ... FOR UPDATE in id
 //     order, so concurrent payments touching the same accounts
@@ -27,7 +37,11 @@ import (
 // If idemKey is non-nil and a payment with that key already exists,
 // the ORIGINAL payment is returned with created=false and nothing is
 // written — a retried request never moves money twice.
-func (s *Store) PostPayment(ctx context.Context, fromID, toID uuid.UUID, amountCents int64, kind string, idemKey *string) (p *Payment, created bool, err error) {
+func (s *Store) PostPaymentWithNote(ctx context.Context, fromID, toID uuid.UUID, amountCents int64, kind string, idemKey *string, note string) (p *Payment, created bool, err error) {
+	return s.postPayment(ctx, fromID, toID, amountCents, kind, idemKey, note)
+}
+
+func (s *Store) postPayment(ctx context.Context, fromID, toID uuid.UUID, amountCents int64, kind string, idemKey *string, note string) (p *Payment, created bool, err error) {
 	if amountCents <= 0 {
 		return nil, false, ErrInvalidAmount
 	}
@@ -96,10 +110,10 @@ func (s *Store) PostPayment(ctx context.Context, fromID, toID uuid.UUID, amountC
 	}
 
 	p, err = scanPayment(tx.QueryRow(ctx, `
-		INSERT INTO payments (from_account, to_account, amount_cents, currency, kind, idempotency_key)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO payments (from_account, to_account, amount_cents, currency, kind, idempotency_key, note)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING `+paymentColumns,
-		fromID, toID, amountCents, from.Currency, kind, idemKey))
+		fromID, toID, amountCents, from.Currency, kind, idemKey, note))
 	if err != nil {
 		// A concurrent request with the same idempotency key won the
 		// race between our check and this insert: abandon this
@@ -171,7 +185,7 @@ func (s *Store) Deposit(ctx context.Context, accountID uuid.UUID, amountCents in
 	if err != nil {
 		return nil, false, err
 	}
-	return s.PostPayment(ctx, external.ID, accountID, amountCents, KindDeposit, idemKey)
+	return s.postPayment(ctx, external.ID, accountID, amountCents, KindDeposit, idemKey, "")
 }
 
 // AccountCheck compares one account's stored balance with the sum of

@@ -72,6 +72,7 @@ type Payment struct {
 	Currency       string    `json:"currency"`
 	Kind           string    `json:"kind"`
 	IdempotencyKey *string   `json:"idempotency_key,omitempty"`
+	Note           string    `json:"note"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 
@@ -126,8 +127,12 @@ CREATE TABLE IF NOT EXISTS payments (
 	currency        text NOT NULL,
 	kind            text NOT NULL CHECK (kind IN ('payment', 'deposit')),
 	idempotency_key text UNIQUE,
+	note            text NOT NULL DEFAULT '',
 	created_at      timestamptz NOT NULL DEFAULT now()
 );
+-- Stage 2 added payments.note; bring databases created by stage 1
+-- up to date (a no-op where the column already exists).
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS note text NOT NULL DEFAULT '';
 CREATE TABLE IF NOT EXISTS ledger_entries (
 	id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 	payment_id   uuid NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
@@ -175,12 +180,12 @@ func scanAccount(row pgx.Row) (*Account, error) {
 	return &a, nil
 }
 
-const paymentColumns = `id, from_account, to_account, amount_cents, currency, kind, idempotency_key, created_at`
+const paymentColumns = `id, from_account, to_account, amount_cents, currency, kind, idempotency_key, note, created_at`
 
 func scanPayment(row pgx.Row) (*Payment, error) {
 	var p Payment
 	if err := row.Scan(&p.ID, &p.FromAccount, &p.ToAccount, &p.AmountCents,
-		&p.Currency, &p.Kind, &p.IdempotencyKey, &p.CreatedAt); err != nil {
+		&p.Currency, &p.Kind, &p.IdempotencyKey, &p.Note, &p.CreatedAt); err != nil {
 		return nil, err
 	}
 	return &p, nil

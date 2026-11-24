@@ -124,6 +124,7 @@ type paymentRequest struct {
 	FromID      string `json:"from_id"`
 	ToID        string `json:"to_id"`
 	AmountCents int64  `json:"amount_cents"`
+	Note        string `json:"note"`
 }
 
 func (a *API) createPayment(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +144,7 @@ func (a *API) createPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	key := idempotencyKey(r)
-	p, created, err := a.Store.PostPayment(r.Context(), fromID, toID, req.AmountCents, store.KindPayment, &key)
+	p, created, err := a.Store.PostPaymentWithNote(r.Context(), fromID, toID, req.AmountCents, store.KindPayment, &key, req.Note)
 	if err != nil {
 		writeStoreError(w, err)
 		return

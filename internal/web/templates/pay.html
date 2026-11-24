@@ -1,0 +1,40 @@
+{{define "title"}}New payment{{end}}
+{{define "content"}}
+<h1>New payment</h1>
+<p class="muted lead">Move money between accounts. The payment posts as one
+balanced transaction — or not at all. Try sending more than the balance:
+the ledger will refuse, and nothing moves.</p>
+
+<form method="post" action="{{.BasePath}}/pay" class="panel form pay-form">
+  <label for="from_id">From</label>
+  <select id="from_id" name="from_id" required>
+    {{range .Accounts}}
+    <option value="{{.ID}}" {{if eq $.FromID .ID.String}}selected{{end}}>
+      {{.Name}} — {{money .Currency .BalanceCents}}</option>
+    {{end}}
+  </select>
+
+  <label for="to_id">To</label>
+  <select id="to_id" name="to_id" required>
+    {{range .Accounts}}
+    <option value="{{.ID}}" {{if eq $.ToID .ID.String}}selected{{end}}>
+      {{.Name}} ({{.Currency}})</option>
+    {{end}}
+  </select>
+
+  <label for="amount">Amount</label>
+  <input id="amount" name="amount" type="text" inputmode="decimal"
+         placeholder="0.00" required value="{{.Amount}}">
+  <p class="muted small">Dollars and cents, e.g. 25 or 25.50. Both accounts must
+    share a currency — no FX in v1.</p>
+
+  <label for="note">Note <span class="muted">(optional)</span></label>
+  <input id="note" name="note" type="text" maxlength="140"
+         placeholder="e.g. Rent split — November" value="{{.Note}}">
+
+  <input type="hidden" name="idem_key" value="{{.FormKey}}">
+  <button type="submit" class="btn">Send payment</button>
+  <p class="muted small">This form carries an idempotency key — submitting it
+    twice can never pay twice.</p>
+</form>
+{{end}}

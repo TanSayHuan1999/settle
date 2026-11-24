@@ -1,0 +1,58 @@
+{{define "title"}}{{.Account.Name}}{{end}}
+{{define "content"}}
+<p class="crumb"><a href="{{.BasePath}}/">← All accounts</a></p>
+
+<section class="acct-head">
+  <div>
+    <h1>{{.Account.Name}} <span class="chip">{{.Account.Currency}}</span>
+      {{if .Account.IsSystem}}<span class="chip chip-kind">system</span>{{end}}</h1>
+    <div class="acct-balance">{{money .Account.Currency .Account.BalanceCents}}</div>
+    <p class="muted">Account opened {{day .Account.CreatedAt}}</p>
+  </div>
+  {{if not .Account.IsSystem}}
+  <form method="post" action="{{.BasePath}}/accounts/{{.Account.ID}}/deposit" class="panel deposit-form">
+    <h2>Deposit funds</h2>
+    <label for="amount">Amount ({{.Account.Currency}})</label>
+    <input id="amount" name="amount" type="text" inputmode="decimal"
+           placeholder="0.00" required value="{{.FormAmt}}">
+    <input type="hidden" name="idem_key" value="{{.FormKey}}">
+    <button type="submit" class="btn">Deposit</button>
+    <p class="muted small">Deposits arrive from the EXTERNAL system account —
+      balanced double-entry, like every payment here.</p>
+  </form>
+  {{else}}
+  <div class="panel">
+    <h2>System account</h2>
+    <p class="muted">EXTERNAL is the mirror image of all user money in
+      {{.Account.Currency}}: every deposit is a payment out of it, so its
+      balance is exactly the negative of what users hold — and the whole
+      ledger sums to zero.</p>
+  </div>
+  {{end}}
+</section>
+
+<h2>Statement</h2>
+{{if .Statement}}
+<table class="table">
+  <thead>
+    <tr><th>Date</th><th>Description</th><th class="num">Amount</th><th class="num">Balance</th></tr>
+  </thead>
+  <tbody>
+    {{range .Statement}}
+    <tr>
+      <td class="muted nowrap">{{clock .Entry.CreatedAt}}</td>
+      <td>
+        {{.Label}}
+        {{if eq .Kind "deposit"}}<span class="chip chip-kind">deposit</span>{{end}}
+        {{if .Note}}<div class="note">{{.Note}}</div>{{end}}
+      </td>
+      <td class="num nowrap {{if gt .Entry.AmountCents 0}}in{{else}}out{{end}}">{{signed $.Account.Currency .Entry.AmountCents}}</td>
+      <td class="num nowrap">{{money $.Account.Currency .RunningBalance}}</td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="muted">No transactions yet.</p>
+{{end}}
+{{end}}

@@ -86,3 +86,118 @@ None in scope or API shape. Two small calls made along the way:
 2. CI is included already (the plan puts CI in stage 1's build
    order line); it mirrors relayhook's workflow with a Postgres 16
    service.
+
+---
+
+# Stage 2 notes — dashboard UI, seed data, payment form (24 Nov 2026)
+
+Stage 2 is complete: the server-rendered UI from the plan, the seed
+dataset, and the `payments.note` field. No GitHub repo yet and no
+deploy (stage 3).
+
+## What was added
+
+- `internal/web` — the UI package. `html/template` templates and one
+  stylesheet are embedded via `embed.FS`; no JS framework, no build
+  pipeline, no external assets. Dark-first fintech theme (deep slate
+  background, emerald accent, system font stack), responsive grid.
+- `internal/store/views.go` — display read models: `ListPayments`
+  (payments with both account names), `ListStatement` (entries with
+  kind, note and counterparty), `PaymentCount`.
+- `internal/store/seed.go` — `SeedIfEmpty`, called from `main` after
+  migrate.
+- `internal/config` — `BASE_PATH` env var (normalised to "" or
+  "/settle"-style); templates prefix every href/form action with it.
+  Routes themselves stay unprefixed — in production Caddy strips the
+  prefix — and the JSON API is untouched by it.
+- `cmd/settle/main.go` — a small `dispatch` in front of the two muxes:
+  the UI and API share `GET /`, `GET /accounts/{id}` and
+  `POST /accounts`, so requests are split by what browsers send
+  (url-encoded form posts → UI; `Accept: text/html` on the account
+  page → UI; `/`, `/pay`, `/integrity`, `/static/` are UI-only).
+  JSON clients see exactly the stage-1 API.
+
+## Routes
+
+UI: `GET /` dashboard (user account cards, per-currency "held for
+users" totals, payments count, recent payments with notes, EXTERNAL
+accounts in a separate labelled system section, open-an-account
+form) · `GET /accounts/{id}` (balance header, deposit form, full
+statement with running balances) · `POST /accounts` (form create) ·
+`POST /accounts/{id}/deposit` · `GET|POST /pay` · `GET /integrity`
+(the `Verify()` report rendered: OK banner, per-currency sums,
+stored-vs-recomputed table) · `GET /static/style.css`.
+
+Forms call the store engine directly — never HTTP self-calls — so
+UI money movement holds every invariant API money movement does.
+Each money form carries a hidden idempotency key minted at render
+time: resubmitting a form replays the original payment instead of
+paying twice (verified in tests and in the smoke run).
+
+Amounts in forms are dollars strings parsed by
+`web.ParseAmountToCents` — digit-by-digit, never via float; it
+rejects >2 decimal places, signs, separators, zero and non-numeric
+input. Display uses `web.FormatMoney` ("SGD 1,234.56", negatives
+lead with −) and `FormatSigned` (+/−) for statement rows. Engine
+errors re-render the form with the error in plain language
+("Insufficient funds."); successes redirect (303) to the sender's
+account page with a notice banner.
+
+Running balances on the statement are computed by walking the
+newest-first rows down from the account's current balance, so they
+stay correct even if the statement is ever truncated by its limit.
+
+## The note field
+
+`payments.note text NOT NULL DEFAULT ''` — in the CREATE TABLE for
+fresh databases and as an `ALTER TABLE … ADD COLUMN IF NOT EXISTS`
+in the same migration for stage-1 databases. `PostPayment` became a
+wrapper over an unexported core; the new `PostPaymentWithNote`
+carries the note (stage-1 signatures and tests unchanged). The JSON
+API accepts an optional `"note"` on `POST /payments`. Seed payments
+and the pay form's optional note field use it; deposits stay
+note-less. Covered by `TestPaymentNoteRoundTrips` (engine round-trip
+plus the ListPayments/ListStatement read models).
+
+## Seed design
+
+Only when zero user accounts exist (checked again on every boot —
+a restart never re-seeds; the fixed keys `seed-dep-<slug>` /
+`seed-pay-N` would make even a partial re-run replay-safe).
+Accounts: Aisha Rahman (SGD), Wei Jie Tan (SGD), Priya Nair (SGD),
+Marcus Lee (USD), Lakeside Mart (SGD merchant). Deposits: 2,500 /
+1,800 / 950 SGD, 1,200 USD, 300 SGD. Then 10 SGD payments with
+human notes (rent split, groceries, concert-ticket payback, bubble
+tea IOU, a merchant refund…), ordered so no sender is ever
+overdrawn. Marcus (the only USD account) receives a deposit only —
+a USD payment would have no same-currency counterparty in v1.
+
+## Results
+
+- `go build`, `go vet`, `gofmt` clean.
+- **21/21 tests pass**: stage 1's 10 (3 API + 7 store) all green,
+  plus `TestPaymentNoteRoundTrips`, plus 10 web tests — money
+  formatting, amount parsing (incl. "10.555"/"abc"/"0" rejected),
+  seeded dashboard content + seed idempotence, BASE_PATH link
+  prefixing, statement running balances, pay-form happy path
+  (balances move; same-form resubmit does NOT double-pay),
+  insufficient-funds (error shown, nothing moves, no payment row),
+  self-payment and bad-amount rejections, deposit + create-account
+  forms, integrity page.
+- Store package also passes under `-race`.
+- Manual smoke against a scratch DB on the 5434 instance, server on
+  :18099: all four pages 200 with seeded content (Aisha at
+  SGD 2,314.25, "Ledger balanced", 7 × ✓ match), stylesheet 200,
+  API responses unchanged for non-browser clients, a real form
+  payment of SGD 10.00 posted (303 → sender page with notice),
+  resubmission replayed without moving money again, a 99,999.00
+  attempt refused with "Insufficient funds.", and a restart against
+  the same DB did not re-seed (7 accounts, balances intact,
+  `/verify` ok). Scratch DB dropped afterwards.
+
+## Gotcha worth remembering
+
+`html/template` escapes a leading `+` in text nodes to `&#43;`, so
+the `signed` template func returns `template.HTML` (its input is
+only a validated currency code and an int64) — otherwise statement
+credits would lose their + sign in the page source.
