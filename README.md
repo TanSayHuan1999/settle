@@ -17,6 +17,16 @@ protects it is enforced inside the transaction that moves the money.
 the dashboard, post a payment from the Pay page, then check the
 Integrity page to watch the ledger prove it still balances.
 
+## Demo
+
+Watch it run against the live deployed server — a deposit sent twice with the same idempotency key and absorbed, a payment landing to the cent, an overpayment refused, and the whole system reconciling from the raw ledger:
+
+
+
+https://github.com/user-attachments/assets/02b02843-4a07-4d23-8aba-aec81809cf19
+
+
+
 ## How it works
 
 A payment is one database transaction:
