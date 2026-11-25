@@ -25,6 +25,13 @@ Watch it run against the live deployed server — a deposit sent twice with the 
 
 https://github.com/user-attachments/assets/02b02843-4a07-4d23-8aba-aec81809cf19
 
+**The UI walkthrough** — the same system through its dashboard: account statements, a payment made in the form, balances updating, and the integrity page.
+
+
+https://github.com/user-attachments/assets/d918aab5-4f51-4e9d-af54-aac566838671
+
+
+
 
 
 ## How it works
