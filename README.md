@@ -13,7 +13,7 @@ can prove the books balance. Settle is the small, careful version of
 that system: the ledger is the source of truth, and every rule that
 protects it is enforced inside the transaction that moves the money.
 
-**Live demo:** the app is running at http://5.222.0.70/settle/ — open
+**Live demo:** the app is running at https://settle.eveningstack.com — open
 the dashboard, post a payment from the Pay page, then check the
 Integrity page to watch the ledger prove it still balances.
 
